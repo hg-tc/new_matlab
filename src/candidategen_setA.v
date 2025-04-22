@@ -1,4 +1,4 @@
-module candidategen #(
+module candidategen_setA #(
     parameter J = 14,
     parameter I = 7, 
     parameter A = 2,
@@ -9,9 +9,12 @@ module candidategen #(
     input rst_n,
     input [J*AWIDTH-1:0] x_initial,
     input x_initial_tvalid,
+
     input start_gen,
     input [J_WIDTH-1:0] J_index,
-    output [J*64-1:0] candidate_row,
+    input [AWIDTH-1:0] A_value,
+
+    output [J*AWIDTH-1:0] candidate_row,
     output candidate_row_tvalid,
     output candidate_row_tlast
 );
@@ -43,9 +46,8 @@ reg [J_WIDTH-1:0] J_index_reg;
 reg [AWIDTH-1:0] A_cnt;
 reg [AWIDTH-1:0] A_cnt2;
 // 输出寄存器
-reg [J*64-1:0] candidate_row_reg;
-reg candidate_row_tvalid_reg;
 
+reg candidate_row_tvalid_reg;
 wire [AWIDTH-1:0] x_current_next [J-1:0];
 wire [AWIDTH-1:0] x_initial_next [J-1:0];
 wire [$clog2(J)-1:0] next_bit_cnt,next_bit_cnt2,prev_bit_cnt,prev_bit_cnt2,next_next_bit_cnt;
@@ -74,7 +76,6 @@ always @(posedge clk) begin
         end
         bit_cnt <= 0;
         bit_cnt2 <= 0;
-        candidate_row_reg <= 0;
         candidate_row_tvalid_reg <= 0;
         J_index_reg <= 0;
         A_cnt <= 0;
@@ -85,7 +86,7 @@ always @(posedge clk) begin
                 if (start_gen) begin
                     state <= GEN;
                     for(integer i=0; i<J; i=i+1) begin
-                        x_current[i] <= x_initial_reg[i*AWIDTH +: AWIDTH];
+                        x_current[i] <= i==J_index ? A_value : x_initial_reg[i*AWIDTH +: AWIDTH];
                     end
                     bit_cnt <= (J_index==0) ? 1 : 0;
                     candidate_row_tvalid_reg <= 1;
@@ -142,7 +143,7 @@ always @(posedge clk) begin
                 
                 
                 if(final_done) begin
-                    state <= DONE;
+                    state <= IDLE;
                     candidate_row_tvalid_reg <= 0;
                 end else begin
                     candidate_row_tvalid_reg <= 1;
@@ -189,11 +190,6 @@ always @(posedge clk) begin
                 
             end
 
-            DONE: begin
-                state <= IDLE;
-                candidate_row_tvalid_reg <= 0;
-
-            end
             
             default: state <= IDLE;
         endcase
@@ -201,7 +197,13 @@ always @(posedge clk) begin
 end
 
 // 输出赋值
-assign candidate_row = candidate_row_reg;
+genvar j;
+generate
+    for(j=0; j<J; j=j+1) begin
+        assign candidate_row[j*AWIDTH +: AWIDTH] = x_current[j];
+    end
+endgenerate
+
 assign candidate_row_tvalid = candidate_row_tvalid_reg;
 assign candidate_row_tlast = bit_cnt2 == J-1 && bit_cnt == J-2 && A_cnt2 == A-2 && A_cnt == A-2;
 

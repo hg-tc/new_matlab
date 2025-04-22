@@ -1,4 +1,4 @@
-module F_case2 #(
+module F_case2_flow #(
     parameter J = 14,
     parameter I = 7, 
     parameter A = 2,
@@ -11,7 +11,7 @@ module F_case2 #(
     input [J*64-1:0] H,
     input H_tvalid,
 
-    input [J*AWIDTH-1:0] x,
+    input [AWIDTH-1:0] x,
     input x_tvalid,
 
     output [63:0] F_value,
@@ -39,22 +39,12 @@ wire x_empty;
 wire [64-1:0] x_double;
 wire x_double_tvalid;
 
+wire [64-1:0] Hx;
+wire Hx_tvalid;
+wire Hx_tlast;
 
-easy_fifo #(
-    .DATAWIDTH(AWIDTH),
-    .SIZE(512),
-    .IN_SIZE(J),
-    .OUT_SIZE(1)
-) fifo_x ( 
-    .clk(clk),
-    .rst_n(rst_n),
-    .din(x),
-    .din_valid(x_tvalid),
-    .request(!x_empty),
-    .dout(x_fifo_out),
-    .out_valid(x_fifo_out_tvalid),
-    .empty(x_empty)
-);
+assign x_fifo_out = x;
+assign x_fifo_out_tvalid = x_tvalid;
 
 int8_double int8_double (
     .s_axis_a_tvalid(x_fifo_out_tvalid),

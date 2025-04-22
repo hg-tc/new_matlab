@@ -52,8 +52,8 @@
         "RESULT_TLAST_Behv": [ { "value": "Null", "resolve_type": "user", "usage": "all" } ]
       },
       "model_parameters": {
-        "C_XDEVICEFAMILY": [ { "value": "virtexu", "resolve_type": "generated", "usage": "all" } ],
-        "C_PART": [ { "value": "xcvu065-ffvc1517-1-i", "resolve_type": "generated", "usage": "all" } ],
+        "C_XDEVICEFAMILY": [ { "value": "virtex7", "resolve_type": "generated", "usage": "all" } ],
+        "C_PART": [ { "value": "xc7vx485tffg1157-1", "resolve_type": "generated", "usage": "all" } ],
         "C_HAS_ADD": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_HAS_SUBTRACT": [ { "value": "1", "resolve_type": "generated", "format": "long", "usage": "all" } ],
         "C_HAS_MULTIPLY": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ],
@@ -131,17 +131,17 @@
         "C_FIXED_DATA_UNSIGNED": [ { "value": "0", "resolve_type": "generated", "format": "long", "usage": "all" } ]
       },
       "project_parameters": {
-        "ARCHITECTURE": [ { "value": "virtexu" } ],
+        "ARCHITECTURE": [ { "value": "virtex7" } ],
         "BASE_BOARD_PART": [ { "value": "" } ],
         "BOARD_CONNECTIONS": [ { "value": "" } ],
-        "DEVICE": [ { "value": "xcvu065" } ],
-        "PACKAGE": [ { "value": "ffvc1517" } ],
+        "DEVICE": [ { "value": "xc7vx485t" } ],
+        "PACKAGE": [ { "value": "ffg1157" } ],
         "PREFHDL": [ { "value": "VERILOG" } ],
         "SILICON_REVISION": [ { "value": "" } ],
         "SIMULATOR_LANGUAGE": [ { "value": "MIXED" } ],
         "SPEEDGRADE": [ { "value": "-1" } ],
         "STATIC_POWER": [ { "value": "" } ],
-        "TEMPERATURE_GRADE": [ { "value": "I" } ],
+        "TEMPERATURE_GRADE": [ { "value": "" } ],
         "USE_RDI_CUSTOMIZATION": [ { "value": "TRUE" } ],
         "USE_RDI_GENERATION": [ { "value": "TRUE" } ]
       },

@@ -1,4 +1,4 @@
-module candidategen #(
+module multi_divi_index_gen_v2 #(
     parameter J = 14,
     parameter I = 7, 
     parameter A = 2,
@@ -11,12 +11,24 @@ module candidategen #(
     input x_initial_tvalid,
     input start_gen,
     input [J_WIDTH-1:0] J_index,
-    output [J*64-1:0] candidate_row,
-    output candidate_row_tvalid,
-    output candidate_row_tlast
+
+    output [AWIDTH-1:0] mutli_col_idx1,
+    output [AWIDTH-1:0] mutli_col_idx2,
+    output [J_WIDTH-1:0] multi_row_idx,
+    output [J_WIDTH-1:0] multi_row_idx2,
+    output [AWIDTH-1:0] divi_col_idx1,
+    output [AWIDTH-1:0] divi_col_idx2,
+    output [J_WIDTH-1:0] divi_row_idx,
+    output [J_WIDTH-1:0] divi_row_idx2,
+    output reg [1:0] state_out,
+    output index_out_tvalid
 );
 
 
+reg [AWIDTH-1:0] mutli_col_idx1_reg;
+reg [J_WIDTH-1:0] multi_row_idx_reg;
+reg [AWIDTH-1:0] divi_col_idx1_reg;
+reg [J_WIDTH-1:0] divi_row_idx_reg;
 
 reg [J*AWIDTH-1:0] x_initial_reg;
 
@@ -62,9 +74,14 @@ generate
     end
 endgenerate
 
+wire [J_WIDTH-1:0] next_bit_cnt_end;
+assign next_bit_cnt_end = (J_index_reg==0) ? 1 : 0;
+wire [J_WIDTH-1:0] next_bit_cnt2_end;
+assign next_bit_cnt2_end = (J_index_reg<=1) ? 2 : 1;
+
+
 wire final_done;
 assign final_done = (bit_cnt2 == J-1 || (J_index_reg == J-1 && bit_cnt2 == J-2) ) && (bit_cnt == J-2 || (J_index_reg >= J-2 && bit_cnt == J-3)) && A_cnt2 == A-2 && A_cnt == A-2;
-
 // 状态机
 always @(posedge clk) begin
     if (!rst_n) begin
@@ -79,6 +96,11 @@ always @(posedge clk) begin
         J_index_reg <= 0;
         A_cnt <= 0;
         A_cnt2 <= 0;
+        mutli_col_idx1_reg <= 0;
+        divi_col_idx1_reg <= 0;
+        multi_row_idx_reg <= 0;
+        divi_row_idx_reg <= 0;
+        state_out <= 0;
     end else begin
         case (state)
             IDLE: begin
@@ -91,40 +113,55 @@ always @(posedge clk) begin
                     candidate_row_tvalid_reg <= 1;
                     J_index_reg <= J_index;
                     A_cnt <= 0;
+
+                    mutli_col_idx1_reg <= 0;
+                    multi_row_idx_reg <= 0;
+                    divi_col_idx1_reg <= 0;
+                    divi_row_idx_reg <= 0;
+                    state_out <= 1;
+                end
+                else begin
+                    state_out <= 0;
                 end
             end
             
             GEN: begin
-                
-                
-
                 // 跳出循环
                 if (bit_cnt == J || (bit_cnt == J-1 && J_index_reg==J-1)) begin
                     state <= GEN2;
+                    state_out <= 3;
                     candidate_row_tvalid_reg <= 1;
                     bit_cnt <= (J_index_reg==0) ? 1 : 0;
                     bit_cnt2 <= (J_index_reg<=1) ? 2 : 1;
                     for(integer i=0; i<J; i=i+1) begin
-                        x_current[i] <= (i < 2) ? x_initial_next[i] : x_initial_reg[i*AWIDTH +: AWIDTH];
+                        x_current[i] <= ((i == next_bit_cnt_end) || (i == next_bit_cnt2_end)) ? x_initial_next[i] : x_initial_reg[i*AWIDTH +: AWIDTH];
                     end
                 end else begin
                     // 计数器
+                    state_out <= 2;
+                    mutli_col_idx1_reg <= x_current_next[bit_cnt];
+                    multi_row_idx_reg <= bit_cnt;
+                    divi_col_idx1_reg <= x_initial_reg[(bit_cnt)*AWIDTH +: AWIDTH];
+                    divi_row_idx_reg <= bit_cnt;
                     
                     if(A_cnt == 0 && bit_cnt != 0) begin
                         if(A!=2) begin
                             A_cnt <= A_cnt + 1;
                             x_current[prev_bit_cnt] <= x_initial_reg[(prev_bit_cnt)*AWIDTH +: AWIDTH];
                             x_current[bit_cnt] <= x_current_next[bit_cnt];
+                            
                         end
                         else begin
                             x_current[prev_bit_cnt] <= x_initial_reg[(prev_bit_cnt)*AWIDTH +: AWIDTH];
                             x_current[bit_cnt] <= x_current_next[bit_cnt];
+
                             bit_cnt <= next_bit_cnt;
                         end
                     end
                     else if(A_cnt < A-2) begin
                         A_cnt <= A_cnt + 1;
                         x_current[bit_cnt] <= x_current_next[bit_cnt];
+
                     end
                     else begin
                         A_cnt <= 0;
@@ -144,7 +181,10 @@ always @(posedge clk) begin
                 if(final_done) begin
                     state <= DONE;
                     candidate_row_tvalid_reg <= 0;
+                    state_out <= 4;
                 end else begin
+                    state_out <= 3;
+
                     candidate_row_tvalid_reg <= 1;
                     if(A_cnt2 < A-2) begin
                         A_cnt2 <= A_cnt2 + 1;
@@ -175,6 +215,7 @@ always @(posedge clk) begin
                             x_current[bit_cnt2] <= x_initial_reg[bit_cnt2*AWIDTH +: AWIDTH];
                             x_current[next_bit_cnt2] <= x_initial_next[next_bit_cnt2];
 
+
                         end else begin
                             bit_cnt <= next_bit_cnt;
                             bit_cnt2 <= next_next_bit_cnt;
@@ -182,6 +223,7 @@ always @(posedge clk) begin
                             x_current[bit_cnt2] <= x_initial_reg[bit_cnt2*AWIDTH +: AWIDTH];
                             x_current[next_bit_cnt] <= x_initial_next[next_bit_cnt];
                             x_current[next_next_bit_cnt] <= x_initial_next[next_next_bit_cnt];
+
                         end
                     end
                 end
@@ -192,6 +234,7 @@ always @(posedge clk) begin
             DONE: begin
                 state <= IDLE;
                 candidate_row_tvalid_reg <= 0;
+                state_out <= 0;
 
             end
             
@@ -200,11 +243,22 @@ always @(posedge clk) begin
     end
 end
 
-// 输出赋值
-assign candidate_row = candidate_row_reg;
-assign candidate_row_tvalid = candidate_row_tvalid_reg;
-assign candidate_row_tlast = bit_cnt2 == J-1 && bit_cnt == J-2 && A_cnt2 == A-2 && A_cnt == A-2;
 
 
+//new output
+// wire [1:0] state_out;
+// assign state_out = state;
+
+assign mutli_col_idx1 = state == GEN2 ? x_current[bit_cnt] : mutli_col_idx1_reg;
+assign mutli_col_idx2 = x_current[bit_cnt2];
+assign multi_row_idx = state == GEN2 ? bit_cnt : multi_row_idx_reg;
+assign multi_row_idx2 = bit_cnt2;
+
+assign divi_col_idx1 = state == GEN2 ? x_initial_reg[bit_cnt*AWIDTH +: AWIDTH] : divi_col_idx1_reg;
+assign divi_col_idx2 = x_initial_reg[bit_cnt2*AWIDTH +: AWIDTH];
+assign divi_row_idx = state == GEN2 ? bit_cnt : divi_row_idx_reg;
+assign divi_row_idx2 = bit_cnt2;
+
+assign index_out_tvalid = candidate_row_tvalid_reg;
 
 endmodule

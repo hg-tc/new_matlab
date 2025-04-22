@@ -8,13 +8,9 @@ module backbone_initial #(
     input clk,
     input rst_n,
     input [J*A*64-1:0] alpha_u,
-    input alpha_u_tvalid,
-
     input [J*A_WIDTH-1:0] x_initial,
-    input x_initial_tvalid,
-
     input [J_WIDTH-1:0] ind_j,
-    input ind_j_tvalid,
+    input din_tvalid,
     
     output backbone_initial_tvalid,
     output [63:0] backbone_initial
@@ -22,173 +18,37 @@ module backbone_initial #(
 
 
 
-localparam LEVELS = $clog2(J);
+wire [(J-1)*64-1:0] multi_tree_din;
+wire [(J-1)-1:0] multi_tree_din_tvalid;
+wire [63:0] multi_tree_dout;
+wire multi_tree_dout_tvalid;
 
-
-reg [LEVELS-1:0] multi_opa_tvalid;
-reg [LEVELS-1:0] multi_opb_tvalid;
-reg [LEVELS-1:0] multi_in_tlast;
-wire [LEVELS-1:0] multi_result_tvalid;
-reg [64-1:0] multi_opa_data [LEVELS-1:0];
-reg [64-1:0] multi_opb_data [LEVELS-1:0];
-wire [64-1:0] multi_result_data [LEVELS-1:0];
-wire [LEVELS-1:0] pre_multi_out_tlast;
-wire [LEVELS-1:0] multi_out_tlast;
-wire [LEVELS-1:0] multi_out_tvalid;
+wire [63:0] multi_tree_din_element [J-1-1:0];//debug
 
 genvar i;
 generate
-    for(i=0; i<LEVELS; i=i+1) begin
-        multiply multiply_inst(
-            .aclk(clk),
-            .s_axis_a_tvalid(multi_opa_tvalid[i]),
-            .s_axis_a_tdata(multi_opa_data[i]),
-            .s_axis_b_tvalid(multi_opb_tvalid[i]),
-            .s_axis_b_tdata(multi_opb_data[i]),
-            .m_axis_result_tvalid(multi_result_tvalid[i]),
-            .m_axis_result_tdata(multi_result_data[i])
-        );
-
-        
-        easy_fifo #(
-            .DATAWIDTH(1),
-            .SIZE(64),
-            .IN_SIZE(1),
-            .OUT_SIZE(1)
-        ) fifo_tlast (
-            .clk(clk),
-            .rst_n(rst_n),
-            .din(i==0 ? multi_in_tlast[i] : multi_out_tlast[i-1]),
-            .din_valid(multi_opb_tvalid[i]),
-            .request(multi_result_tvalid[i]),
-            .dout(pre_multi_out_tlast[i]),
-            .out_valid(multi_out_tvalid[i]),
-            .empty()
-        );
-        assign multi_out_tlast[i] = pre_multi_out_tlast[i] & multi_out_tvalid[i];
+    for(i=0; i<J-1; i=i+1) begin : multi_tree_input_gen
+        assign multi_tree_din[i*64 +: 64] = (i < ind_j-1) ? alpha_u[i*A*64 + x_initial[i*A_WIDTH +: A_WIDTH]*64 +: 64] : 
+            alpha_u[(i+1)*A*64 + x_initial[(i+1)*A_WIDTH +: A_WIDTH]*64 +: 64];
+        assign multi_tree_din_tvalid[i] = din_tvalid;
+        assign multi_tree_din_element[i] = multi_tree_din[i*64 +: 64];
     end
 endgenerate
 
+multi_tree #(
+    .NUM(J-1),
+    .DATA_WIDTH(64)
+) multi_tree_inst(
+    .clk(clk),
+    .rst_n(rst_n),
+    .din(multi_tree_din),
+    .din_tvalid(multi_tree_din_tvalid),
+    .dout(multi_tree_dout), 
+    .dout_tvalid(multi_tree_dout_tvalid)
+);
 
-// 状态定义
-localparam IDLE = 2'b00;
-localparam LOAD = 2'b01;
-localparam CALC = 2'b10;
+assign backbone_initial = multi_tree_dout;
+assign backbone_initial_tvalid = multi_tree_dout_tvalid;    
 
-reg [1:0] state;
-reg [J_WIDTH-1:0] cnt;
-wire [A_WIDTH-1:0] alpha_u_index;
-assign alpha_u_index = x_initial[cnt*A_WIDTH +: A_WIDTH];
-
-integer j;
-always @(posedge clk) begin
-    if(!rst_n) begin
-        state <= IDLE;
-        cnt <= 0;
-        for(j=0; j<LEVELS; j=j+1) begin
-            multi_opa_tvalid[j] <= 0;
-            multi_opb_tvalid[j] <= 0;
-            multi_opa_data[j] <= 0;
-            multi_opb_data[j] <= 0;
-        end
-        multi_in_tlast[0] <= 0;
-    end
-    else begin
-        case(state)
-            IDLE: begin
-                if(alpha_u_tvalid) begin
-                    state <= LOAD;
-                    multi_in_tlast[0] <= 0;
-                    // multi_opa_tvalid[0] <= 1;
-                    // multi_opb_tvalid[0] <= 1;
-                    // multi_opa_data[0] <= alpha_u[cnt*A*64 + alpha_u_index * 64 +: 64];
-                    // multi_opb_data[0] <= alpha_u[(cnt+1)*A*64 + alpha_u_index * 64 +: 64];
-                end
-            end
-            
-            LOAD: begin
-                
-     
-                if(cnt + 1 < J) begin
-                    multi_opa_tvalid[0] <= 1;
-                    multi_opb_tvalid[0] <= 1;
-                    multi_opa_data[0] <= alpha_u[cnt*A*64 + alpha_u_index*64 +: 64];
-                    multi_opb_data[0] <= alpha_u[(cnt+1)*A*64 + alpha_u_index*64 +: 64];
-                    cnt <= cnt + 2;
-                    if(cnt + 2 == J) begin
-                        multi_in_tlast[0] <= 1;
-                    end
-                    else begin
-                        multi_in_tlast[0] <= 0;
-                    end
-                end
-                else if(cnt + 1 == J) begin
-                    multi_opa_tvalid[0] <= 0;
-                    multi_opb_tvalid[0] <= 0;
-                    multi_opa_data[0] <= alpha_u[cnt*A*64 + alpha_u_index*64 +: 64];
-                    multi_opb_data[0] <= 64'h3FF0000000000000;
-                    state <= IDLE;
-                    cnt <= 0;
-                    multi_in_tlast[0] <= 1;
-                end 
-                else begin
-                    multi_opa_tvalid[0] <= 0;
-                    multi_opb_tvalid[0] <= 0;
-                    multi_opa_data[0] <= 0;
-                    multi_opb_data[0] <= 0;
-                    state <= IDLE;
-                    cnt <= 0;
-                    multi_in_tlast[0] <= 0;
-                end
-
-            end
-        
-            default: state <= IDLE;
-        endcase
-    end
-end
-
-reg first_done = 0;
-always @(posedge clk) begin
-    if(!rst_n) begin
-        for(j=0; j<LEVELS - 1; j=j+1) begin
-            multi_in_tlast[j+1] <= 0;
-        end
-    end
-    else begin
-        for(j=0; j<LEVELS - 1; j=j+1) begin
-            if(multi_result_tvalid[j]) begin
-                if(!first_done) begin
-                multi_opa_data[j+1] <= multi_result_data[j];
-                multi_opb_data[j+1] <= multi_opb_data[j+1];// tlast 接入，控制tvalid
-                multi_opa_tvalid[j+1] <= 1;
-                multi_opb_tvalid[j+1] <= 0;
-                first_done <= 1;
-            end
-            else begin
-                multi_opb_data[j+1] <= multi_result_data[j];
-                multi_opa_data[j+1] <= multi_opa_data[j+1];
-                multi_opa_tvalid[j+1] <= 1;
-                multi_opb_tvalid[j+1] <= 1;
-                first_done <= 0;
-                end
-            end
-            else begin
-                if(first_done) begin
-                    multi_opa_tvalid[j+1] <= 0;
-                    multi_opb_tvalid[j+1] <= 0;
-                    multi_opb_data[j+1] <=0;
-                    multi_opa_data[j+1] <= 0;
-                end
-                else begin
-                    multi_opa_tvalid[j+1] <= multi_opa_tvalid[j+1];
-                    multi_opb_tvalid[j+1] <= multi_opb_tvalid[j+1];
-                    multi_opb_data[j+1] <= multi_opb_data[j+1];
-                    multi_opa_data[j+1] <= multi_opa_data[j+1];
-                end
-            end
-        end
-    end
-end
 
 endmodule
