@@ -205,7 +205,7 @@ generate
 endgenerate
 
 assign candidate_row_tvalid = candidate_row_tvalid_reg;
-assign candidate_row_tlast = bit_cnt2 == J-1 && bit_cnt == J-2 && A_cnt2 == A-2 && A_cnt == A-2;
+assign candidate_row_tlast = final_done;
 
 
 

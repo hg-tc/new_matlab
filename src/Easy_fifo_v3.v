@@ -86,4 +86,9 @@ assign almost_full = count_num >= (SIZE - IN_SIZE);
 assign dout = Buffer[DATAWIDTH * r_addr +: DATAWIDTH * OUT_SIZE];
 
 assign out_valid = request && !empty;
+
+wire [DATAWIDTH-1:0] x_debug;
+//debug
+assign x_debug = Buffer[DATAWIDTH * 14 +: DATAWIDTH * OUT_SIZE];
+
 endmodule

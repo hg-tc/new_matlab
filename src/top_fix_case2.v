@@ -1,4 +1,4 @@
-module top #(
+module top_fix_case2 #(
     parameter J = 14,
     parameter I = 7,
     parameter A = 2,
@@ -8,18 +8,45 @@ module top #(
 )(
     input clk,
     input rst_n,
-    input [J*64-1:0] H_row,
+    input [J-1:0] H_row,
     input H_row_tvalid,
-    input [J*64-1:0] y,
-    input y_tvalid,
+    input H_row_tlast,
 
-    input [64-1:0] sigma,
-    input sigma_tvalid,
-
-    input [J*64-1:0] alpha_u_col,
+    input [J*8-1:0] alpha_u_col,
     input alpha_u_col_tvalid,
     input alpha_u_col_tlast
 );
+// -------------------------------------------------- H_row --------------------------------------------------
+reg [J-1:0] H_row_reg [I-1:0];
+reg [I_WIDTH-1:0] H_load_cnt;
+always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        H_load_cnt <= 0;
+        for (integer i = 0; i < I; i = i + 1) begin
+            H_row_reg[i] <= 0;
+        end
+    end
+    else begin
+        if (H_row_tvalid) begin
+            if (H_load_cnt < I-1) begin
+                H_load_cnt <= H_load_cnt + 1;
+            end
+            else begin
+                H_load_cnt <= 0;
+            end
+            H_row_reg[H_load_cnt] <= H_row;
+        end
+        else begin
+            for (integer i = 0; i < I; i = i + 1) begin
+                H_row_reg[i] <= H_row_reg[i];
+            end
+        end
+    end
+end
+
+
+
+
 
 // -------------------------------------------------- initial set generate x_initial and sigma_reg --------------------------------------------------
 localparam number = J * (J - 1) / 2 + 1;
@@ -28,26 +55,26 @@ localparam AWIDTH = $clog2(A)+1;
 reg [A * number * 64 - 1:0] M [I * J - 1 : 0];
 
 
-// case 4
-reg [127:0] A_set [A-1:0];
-always @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
-        A_set[0] <= {64'h0000000000000000, 64'h0000000000000001};
-        A_set[1] <= {64'h0000000000000000, 64'h0000000000000002};
-        A_set[2] <= {64'h0000000000000000, 64'h0000000000000003};
-        A_set[3] <= {64'h0000000000000000, 64'h0000000000000004};
-    end
-    // else begin
-    //     for (integer i = 0; i < A; i = i + 1) begin
-    //         A_set[i] <= A_set[i];
-    //     end
-    // end
-end
+// // case 4
+// reg [127:0] A_set [A-1:0];
+// always @(posedge clk or negedge rst_n) begin
+//     if (!rst_n) begin
+//         A_set[0] <= {64'h0000000000000000, 64'h0000000000000001};
+//         A_set[1] <= {64'h0000000000000000, 64'h0000000000000002};
+//         A_set[2] <= {64'h0000000000000000, 64'h0000000000000003};
+//         A_set[3] <= {64'h0000000000000000, 64'h0000000000000004};
+//     end
+//     // else begin
+//     //     for (integer i = 0; i < A; i = i + 1) begin
+//     //         A_set[i] <= A_set[i];
+//     //     end
+//     // end
+// end
 
 
 wire [J*AWIDTH-1:0] x_initial;
 wire x_initial_tvalid;
-alpha2xinitial #(.J(J), .I(I), .A(A)) alpha2xinitial(
+alpha2xinitial_fix #(.J(J), .I(I), .A(A), .DATAWIDTH(8)) alpha2xinitial_fix(
     .clk(clk),
     .alpha_u_col(alpha_u_col),
     .alpha_u_col_tvalid(alpha_u_col_tvalid),
@@ -55,24 +82,13 @@ alpha2xinitial #(.J(J), .I(I), .A(A)) alpha2xinitial(
     .x_initial(x_initial),
     .x_initial_tvalid(x_initial_tvalid)
 );
-reg [63:0] sigma_reg;
-always @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
-        sigma_reg <= 0;
-    end
-    else begin
-        if (sigma_tvalid) begin
-            sigma_reg <= sigma;
-        end
-    end
-end
 
 // -------------------------------------------------- M generation --------------------------------------------------
 reg [I_WIDTH-1:0] I_idx;
 reg [J_WIDTH-1:0] J_idx;
 reg [A_WIDTH-1:0] A_value;
 reg start_gen;
-
+reg H_row_update;
 
 wire [J*AWIDTH-1:0] candidate_row;
 wire candidate_row_tvalid;
@@ -89,6 +105,7 @@ always @(posedge clk or negedge rst_n) begin
         J_idx <= 0;
         A_value <= 0;
         start_gen <= 0;
+        H_row_update <= 0;
     end
     else begin
         case (state)
@@ -96,17 +113,25 @@ always @(posedge clk or negedge rst_n) begin
                 if (x_initial_tvalid) begin
                     state <= GEN;
                     start_gen <= 1;
+                    H_row_update <= 1;
                 end
             end
             GEN: begin
-                if (candidate_row_tlast && candidate_row_tvalid && A_value < A-1) begin
-                    A_value <= A_value + 1;
-                    start_gen <= 1;
-                end
-                else if (candidate_row_tlast && candidate_row_tvalid && A_value == A-1) begin
+                H_row_update <= 0;
+                if(candidate_row_tlast && candidate_row_tvalid && J_idx == J-1 && A_value == A-1) begin
+                    J_idx <= 0;
                     A_value <= 0;
                     start_gen <= 0;
                     state <= IDLE;
+                end
+                else if (candidate_row_tlast && candidate_row_tvalid && A_value < A-1) begin
+                    A_value <= A_value + 1;
+                    start_gen <= 1;
+                end
+                else if (candidate_row_tlast && candidate_row_tvalid && A_value == A-1 && J_idx < J-1) begin
+                    A_value <= 0;
+                    start_gen <= 1;
+                    J_idx <= J_idx + 1;
                 end
                 else begin
                     start_gen <= 0;
@@ -136,7 +161,7 @@ candidategen_setA #(.J(J), .I(I), .A(A)) candidategen_setA(
 
 // -------------------------------------------------- F generation --------------------------------------------------
 // J parallel F generation
-wire [63:0] F_value;
+wire F_value;
 wire F_value_tvalid;
 
 reg [J_WIDTH-1:0] J_cnt;
@@ -163,11 +188,11 @@ wire [J-1:0] F_value_tvalid_J;
 genvar j;
 generate
     for (j = 0; j < J; j = j + 1) begin : F_case
-        F_case2 #(.J(J), .I(I), .A(A)) F_case2(
+        F_case2_fix #(.J(J), .I(I), .A(A)) F_case2_fix(
             .clk(clk),
             .rst_n(rst_n),
-            .H(H_row),
-            .H_tvalid(H_row_tvalid),
+            .H(H_row_reg[I_idx]),
+            .H_tvalid(H_row_update),
             .x(candidate_row),
             .x_tvalid((j==J_cnt) ? candidate_row_tvalid : 0),
             .F_value(F_value_J[j]),
@@ -196,7 +221,7 @@ assign F_value_tvalid = F_value_tvalid_J[J_cnt2];
 
 // -------------------------------------------------- backbone initialization --------------------------------------------------
 reg [A_WIDTH-1:0] alpha_cnt;
-reg [J*A*64-1:0] alpha_u_reg;
+reg [J*A*8-1:0] alpha_u_reg;
 
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -206,7 +231,7 @@ always @(posedge clk or negedge rst_n) begin
     else begin
         if (alpha_u_col_tvalid) begin
             for (integer i = 0; i < J; i = i + 1) begin
-                alpha_u_reg[i*A*64 + alpha_cnt*64 +: 64] <= alpha_u_col[i*64 +: 64];
+                alpha_u_reg[i*A*8 + alpha_cnt*8 +: 8] <= alpha_u_col[i*8 +: 8];
             end
             alpha_cnt <= alpha_cnt + 1;
         end
@@ -214,9 +239,9 @@ always @(posedge clk or negedge rst_n) begin
 end
 
 
-wire [63:0] vinput_0;
+wire [31:0] vinput_0;
 wire vinput_0_tvalid;
-backbone_initial #(.J(J), .I(I), .A(A)) backbone_initial(
+backbone_initial_fix #(.J(J), .I(I), .A(A)) backbone_initial(
     .clk(clk),
     .rst_n(rst_n),
     .alpha_u(alpha_u_reg),
@@ -227,21 +252,37 @@ backbone_initial #(.J(J), .I(I), .A(A)) backbone_initial(
     .backbone_initial_tvalid(vinput_0_tvalid)
 );  
 
-wire [63:0] vinput_other;
-wire vinput_other_tvalid;
-backbone2vinput_v2 #(.J(J), .I(I), .A(A)) backbone2vinput(
+wire backbone_J_tvalid;
+wire [31:0] backbone_J;
+backbone_J_gen_fix #(.J(J), .I(I), .A(A)) backbone_J_gen(
     .clk(clk),
     .rst_n(rst_n),
     .backbone(vinput_0),
     .backbone_tvalid(vinput_0_tvalid),
     .x_initial(x_initial),
     .x_initial_tvalid(x_initial_tvalid),
+    .alpha_u(alpha_u_reg),
+    .alpha_u_tvalid(x_initial_tvalid),
+    .backbone_J_tvalid(backbone_J_tvalid),
+    .backbone_J(backbone_J)
+);
+
+wire [31:0] vinput_set;
+wire vinput_set_tvalid;
+backbone2vinput_fix #(.J(J), .I(I), .A(A)) backbone2vinput(
+    .clk(clk),
+    .rst_n(rst_n),
+    .backbone(backbone_J_tvalid ? backbone_J : vinput_0),
+    .backbone_tvalid(backbone_J_tvalid || vinput_0_tvalid),
+    .first_backbone(vinput_0_tvalid),
+    .x_initial(x_initial),
+    .x_initial_tvalid(x_initial_tvalid),
     .ind_j(J_idx),
     .ind_j_tvalid(J_idx_tvalid),
     .alpha_u(alpha_u_reg),
     .alpha_u_tvalid(x_initial_tvalid),
-    .vinput(vinput_other),
-    .vinput_tvalid(vinput_other_tvalid)
+    .vinput(vinput_set),
+    .vinput_tvalid(vinput_set_tvalid)
 );  
 
 // -------------------------------------------------- MAC --------------------------------------------------
@@ -285,18 +326,18 @@ always @(posedge clk or negedge rst_n) begin
 end
 wire vinput_ready, M_row_ready;
 wire vinput_empty;
-wire [64-1:0] vinput;
+wire [31:0] vinput;
 wire vinput_tvalid;
 easy_fifo #(
-    .DATAWIDTH(64),
+    .DATAWIDTH(32),
     .SIZE(512),
     .IN_SIZE(1),
     .OUT_SIZE(1)
 ) fifo_vinput (
     .clk(clk),
     .rst_n(rst_n),
-    .din(vinput_other),
-    .din_valid(vinput_other_tvalid),
+    .din(vinput_set),
+    .din_valid(vinput_set_tvalid),
     .request(vinput_ready & M_row_ready),
     .dout(vinput),
     .out_valid(vinput_tvalid),
@@ -306,9 +347,9 @@ easy_fifo #(
 );
 assign vinput_ready = ~vinput_empty;
 
-wire [63:0] M_row_single [A-1:0];
+wire [A-1:0] M_row_single;
 wire [A-1:0] M_row_single_tvalid;
-wire [64*A-1:0] M_row;
+wire [A-1:0] M_row;
 wire M_row_tvalid;
 wire [A-1:0] M_row_empty;
 genvar a;
@@ -331,7 +372,7 @@ generate
             .full(),
             .almost_full()
         );
-        assign M_row[a*64 +: 64] = M_row_single[a];
+        assign M_row[a] = M_row_single[a];
 
     end
     assign M_row_ready = M_row_empty == 0;
@@ -360,7 +401,7 @@ easy_fifo #(
 
 wire beta_tvalid;
 wire [64-1:0] beta;
-MAC #(.J(J), .I(I), .A(A)) MAC(
+MAC_fix #(.J(J), .I(I), .A(A)) MAC(
     .clk(clk),
     .rst_n(rst_n),
     .vinput(vinput),
@@ -372,5 +413,7 @@ MAC #(.J(J), .I(I), .A(A)) MAC(
     .beta_tvalid(beta_tvalid),
     .beta(beta)
 );
+
+
 endmodule
 

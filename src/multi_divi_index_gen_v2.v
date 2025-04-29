@@ -21,7 +21,8 @@ module multi_divi_index_gen_v2 #(
     output [J_WIDTH-1:0] divi_row_idx,
     output [J_WIDTH-1:0] divi_row_idx2,
     output reg [1:0] state_out,
-    output index_out_tvalid
+    output index_out_tvalid,
+    output index_out_tlast
 );
 
 
@@ -179,9 +180,9 @@ always @(posedge clk) begin
                 
                 
                 if(final_done) begin
-                    state <= DONE;
+                    state <= IDLE;
                     candidate_row_tvalid_reg <= 0;
-                    state_out <= 4;
+                    state_out <= 0;
                 end else begin
                     state_out <= 3;
 
@@ -231,12 +232,6 @@ always @(posedge clk) begin
                 
             end
 
-            DONE: begin
-                state <= IDLE;
-                candidate_row_tvalid_reg <= 0;
-                state_out <= 0;
-
-            end
             
             default: state <= IDLE;
         endcase
@@ -260,5 +255,6 @@ assign divi_row_idx = state == GEN2 ? bit_cnt : divi_row_idx_reg;
 assign divi_row_idx2 = bit_cnt2;
 
 assign index_out_tvalid = candidate_row_tvalid_reg;
+assign index_out_tlast = final_done;
 
 endmodule
