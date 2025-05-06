@@ -1,14 +1,15 @@
-module top_fix_case2 #(
-    parameter J = 14,
-    parameter I = 7,
-    parameter A = 2,
+module top_fix_case4 #(
+    parameter J = 4,
+    parameter I = 8,
+    parameter A = 4,
     localparam J_WIDTH = $clog2(J)+1,
     localparam A_WIDTH = $clog2(A)+1,
     localparam I_WIDTH = $clog2(I)+1
 )(
     input clk,
     input rst_n,
-    input [J-1:0] H_row,
+    input [J*64-1:0] H_row,
+    input [128-1:0] y,
     input H_row_tvalid,
     input H_row_tlast,
 
@@ -17,9 +18,9 @@ module top_fix_case2 #(
     input alpha_u_col_tlast
 );
 // -------------------------------------------------- H_row --------------------------------------------------
-reg [J-1:0] H_row_reg [I-1:0];
+reg [J*64-1:0] H_row_reg [I-1:0];
 reg [I_WIDTH-1:0] H_load_cnt;
-
+reg [128-1:0] y_reg [I-1:0];
 reg H_ready;
 integer i;
 always @(posedge clk or negedge rst_n) begin
@@ -28,6 +29,7 @@ always @(posedge clk or negedge rst_n) begin
         H_ready <= 0;
         for (i = 0; i < I; i = i + 1) begin
             H_row_reg[i] <= 0;
+            y_reg[i] <= 0;
         end
     end
     else begin
@@ -40,10 +42,12 @@ always @(posedge clk or negedge rst_n) begin
                 H_ready <= 1;
             end
             H_row_reg[H_load_cnt] <= H_row;
+            y_reg[H_load_cnt] <= y;
         end
         else begin
             for (i = 0; i < I; i = i + 1) begin
                 H_row_reg[i] <= H_row_reg[i];
+                y_reg[i] <= y_reg[i];
             end
         end
     end
@@ -79,7 +83,7 @@ wire [I-1:0] beta_tvalid;
 genvar gi;
 generate
     for (gi = 0; gi < I; gi = gi + 1) begin : gen_cal_core
-        cal_core_fix_case2 #(
+        cal_core_fix_case4 #(
             .J(J),
             .I(I),
             .A(A)
@@ -88,6 +92,8 @@ generate
             .rst_n(rst_n && !new_iteration),
             .H_row(H_row_reg[gi]),
             .H_row_tvalid(H_ready),
+            .y(y_reg[gi]),
+            .y_tvalid(H_ready),
             .alpha_u_col(alpha_u_col | new_alpha_u_col[gi]),
             .alpha_u_col_tvalid(alpha_u_col_tvalid | new_alpha_u_col_tvalid),
             .alpha_u_col_tlast(alpha_u_col_tlast | new_alpha_u_col_tlast),
@@ -202,7 +208,7 @@ generate
         wire [63:0] alpha_sum;
         wire alpha_sum_tvalid;
 
-        adder_case2_fix  adder_inst(
+        adder_case4_fix  adder_inst(
             .clk(clk),
             .rst_n(rst_n),
             .din(alpha_temp_col3[gi4]),

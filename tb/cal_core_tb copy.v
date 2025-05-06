@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-module top_fix_case2_tb;
+module cal_core_tb;
 
 // 参数定义
 parameter J = 14;
@@ -23,7 +23,7 @@ reg alpha_u_col_tvalid;
 reg alpha_u_col_tlast;
 
 // 实例化被测模块
-top_fix_case2 #(
+cal_core #(
     .J(J),
     .I(I),
     .A(A)
@@ -64,29 +64,6 @@ initial begin
     // 设置H_row值
     H_row <= 14'b01100010100011;  // 第1行
     H_row_tvalid <= 1;
-    H_row_tlast <= 0;
-    @(posedge clk);
-    H_row <= 14'b00110101001010;  // 第2行
-    
-    @(posedge clk);
-    H_row <= 14'b01010011000101;  // 第3行
-    
-    @(posedge clk);
-    H_row <= 14'b10001100001011;  // 第4行
-    
-    @(posedge clk);
-    H_row <= 14'b10001010110100;  // 第5行
-    
-    @(posedge clk);
-    H_row <= 14'b10010100111000;  // 第6行
-    
-    @(posedge clk);
-    H_row <= 14'b01101001010100;  // 第7行
-    H_row_tlast <= 1;
-
-    @(posedge clk);
-    H_row_tlast <= 0;
-    H_row_tvalid <= 0;
     
     // 设置alpha_u_col值 - 第一周期
     alpha_u_col <= {
@@ -143,5 +120,10 @@ initial begin
     $finish;
 end
 
+// 监控输出
+always @(posedge clk) begin
+    // 可以添加更多的监控点
+    $display("Time=%t: State=%b", $time, dut.state);
+end
 
 endmodule 

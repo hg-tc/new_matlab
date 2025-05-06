@@ -1,4 +1,4 @@
-module multi_tree_fix #(
+module multi_tree_fix_v2 #(
     parameter NUM = 8,                // 输入数量
     parameter DATA_WIDTH = 8         // 数据位宽
 )(
@@ -29,13 +29,13 @@ generate
             .DATAWIDTH_IN(DATA_WIDTH),
             .DATAWIDTH_OUT(32),
             .INVERSE(1),
-            .OUTADDR(12)
+            .OUTADDR(14)
         ) multiply_inst(
             .aclk(clk),
             .s_axis_a_tvalid(din_tvalid[2*i]),
             .s_axis_a_tdata(din[2*i*DATA_WIDTH +: DATA_WIDTH]),
             .s_axis_b_tvalid(add_one ? din_tvalid[2*i] : din_tvalid[2*i+1]),
-            .s_axis_b_tdata(add_one ? 8'b11111111 : din[(2*i+1)*DATA_WIDTH +: DATA_WIDTH]),
+            .s_axis_b_tdata(add_one ? 8'b10000000 : din[(2*i+1)*DATA_WIDTH +: DATA_WIDTH]),
             .m_axis_result_tvalid(node_valid[i]),
             .m_axis_result_tdata(node_data[i])
         );

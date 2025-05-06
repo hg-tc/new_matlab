@@ -61,19 +61,21 @@ reg candidate_row_tvalid_reg;
 
 wire [AWIDTH-1:0] x_current_next [J-1:0];
 wire [AWIDTH-1:0] x_initial_next [J-1:0];
-wire [$clog2(J)-1:0] next_bit_cnt,next_bit_cnt2,prev_bit_cnt,prev_bit_cnt2,next_next_bit_cnt;
-genvar i;
+wire [$clog2(J):0] next_bit_cnt,next_bit_cnt2,prev_bit_cnt,prev_bit_cnt2,next_next_bit_cnt;
+genvar gi;
 generate
-    for(i=0; i<J; i=i+1) begin
-        assign x_current_next[i] = (x_current[i] < A-1) ? x_current[i] + 1 : 0;
-        assign x_initial_next[i] = (x_initial_reg[i*AWIDTH +: AWIDTH] < A-1) ? x_initial_reg[i*AWIDTH +: AWIDTH] + 1 : 0;
-        assign next_bit_cnt = bit_cnt == J_index_reg-1 ? bit_cnt + 2 : bit_cnt + 1;
-        assign next_next_bit_cnt = next_bit_cnt == J_index_reg-1 ? next_bit_cnt + 2 : next_bit_cnt + 1;
-        assign next_bit_cnt2 = bit_cnt2 == J_index_reg-1 ? bit_cnt2 + 2 : bit_cnt2 + 1;
-        assign prev_bit_cnt = bit_cnt == J_index_reg+1 ? bit_cnt - 2 : bit_cnt - 1;
-        assign prev_bit_cnt2 = bit_cnt2 == J_index_reg+1 ? bit_cnt2 - 2 : bit_cnt2 - 1;
+    for(gi=0; gi<J; gi=gi+1) begin
+        assign x_current_next[gi] = (x_current[gi] < A-1) ? x_current[gi] + 1 : 0;
+        assign x_initial_next[gi] = (x_initial_reg[gi*AWIDTH +: AWIDTH] < A-1) ? x_initial_reg[gi*AWIDTH +: AWIDTH] + 1 : 0;
+        
     end
 endgenerate
+
+assign next_bit_cnt = bit_cnt == J_index_reg-1 ? bit_cnt + 2 : bit_cnt + 1;
+assign next_next_bit_cnt = next_bit_cnt == J_index_reg-1 ? next_bit_cnt + 2 : next_bit_cnt + 1;
+assign next_bit_cnt2 = bit_cnt2 == J_index_reg-1 ? bit_cnt2 + 2 : bit_cnt2 + 1;
+assign prev_bit_cnt = bit_cnt == J_index_reg+1 ? bit_cnt - 2 : bit_cnt - 1;
+assign prev_bit_cnt2 = bit_cnt2 == J_index_reg+1 ? bit_cnt2 - 2 : bit_cnt2 - 1;
 
 wire [J_WIDTH-1:0] next_bit_cnt_end;
 assign next_bit_cnt_end = (J_index_reg==0) ? 1 : 0;
@@ -84,10 +86,11 @@ assign next_bit_cnt2_end = (J_index_reg<=1) ? 2 : 1;
 wire final_done;
 assign final_done = (bit_cnt2 == J-1 || (J_index_reg == J-1 && bit_cnt2 == J-2) ) && (bit_cnt == J-2 || (J_index_reg >= J-2 && bit_cnt == J-3)) && A_cnt2 == A-2 && A_cnt == A-2;
 // 状态机
+reg [31:0] i;
 always @(posedge clk) begin
     if (!rst_n) begin
         state <= IDLE;
-        for(integer i=0; i<J; i=i+1) begin
+        for(i=0; i<J; i=i+1) begin
             x_current[i] <= 0;
         end
         bit_cnt <= 0;
@@ -107,7 +110,7 @@ always @(posedge clk) begin
             IDLE: begin
                 if (start_gen) begin
                     state <= GEN;
-                    for(integer i=0; i<J; i=i+1) begin
+                    for(i=0; i<J; i=i+1) begin
                         x_current[i] <= x_initial_reg[i*AWIDTH +: AWIDTH];
                     end
                     bit_cnt <= (J_index==0) ? 1 : 0;
@@ -134,7 +137,7 @@ always @(posedge clk) begin
                     candidate_row_tvalid_reg <= 1;
                     bit_cnt <= (J_index_reg==0) ? 1 : 0;
                     bit_cnt2 <= (J_index_reg<=1) ? 2 : 1;
-                    for(integer i=0; i<J; i=i+1) begin
+                    for(i=0; i<J; i=i+1) begin
                         x_current[i] <= ((i == next_bit_cnt_end) || (i == next_bit_cnt2_end)) ? x_initial_next[i] : x_initial_reg[i*AWIDTH +: AWIDTH];
                     end
                 end else begin
@@ -210,7 +213,7 @@ always @(posedge clk) begin
                     else begin
                         A_cnt2 <= 0;
                         A_cnt <= 0;
-                        if(bit_cnt2 < J-1) begin
+                        if(bit_cnt2 < J-2 || (bit_cnt2 == J-2 && J_index_reg != J-1)) begin
                             bit_cnt2 <= next_bit_cnt2;
                             x_current[bit_cnt] <= x_initial_next[bit_cnt];
                             x_current[bit_cnt2] <= x_initial_reg[bit_cnt2*AWIDTH +: AWIDTH];

@@ -26,7 +26,15 @@ reg [1:0] state;
 localparam IDLE = 2'b00;
 localparam COUNT = 2'b01;
 
-
+reg [J*A_WIDTH-1:0] x_initial_reg;
+always @(posedge clk or negedge rst_n) begin
+    if(!rst_n) begin
+        x_initial_reg <= 0;
+    end
+    else if(x_initial_tvalid) begin
+        x_initial_reg <= x_initial;
+    end
+end
 always @(posedge clk or negedge rst_n) begin
     if(!rst_n) begin
         J_index_reg <= 0;
@@ -38,12 +46,12 @@ always @(posedge clk or negedge rst_n) begin
             IDLE: begin
                 if(backbone_tvalid) begin
                     state <= COUNT;
-                    J_index_reg <= 0;
+                    J_index_reg <= 1;
                     index_tvalid <= 1;
                 end
             end
             COUNT: begin
-                if(J_index_reg < J-2) begin
+                if(J_index_reg < J-1) begin
                     J_index_reg <= J_index_reg + 1;
                     index_tvalid <= 1;
                 end
@@ -58,10 +66,10 @@ always @(posedge clk or negedge rst_n) begin
 end
 
 wire [31:0] multi_index;
-assign multi_index = J_index_reg*A + x_initial[J_index_reg*A_WIDTH +: A_WIDTH];
+assign multi_index = x_initial_reg[(0)*A_WIDTH +: A_WIDTH];
 
 wire [31:0] divi_index;
-assign divi_index = (J_index_reg+1)*A + x_initial[(J_index_reg+1)*A_WIDTH +: A_WIDTH];
+assign divi_index = J_index_reg*A + x_initial_reg[J_index_reg*A_WIDTH +: A_WIDTH];
 
 // assign mutli_op1 = alpha_u[(multi_row_idx1*A+mutli_col_idx1)*8 +: 8];
 // assign mutli_op2 = alpha_u[(multi_row_idx2*A+mutli_col_idx2)*8 +: 8];

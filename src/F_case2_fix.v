@@ -14,7 +14,7 @@ module F_case2_fix #(
     input [J*AWIDTH-1:0] x,
     input x_tvalid,
 
-    output reg F_value,
+    output F_value,
     output F_value_tvalid
 );
 
@@ -99,6 +99,7 @@ assign F_element_tlast = (cnt == J-1);
 wire pre_F_value_tvalid;
 wire pre_F_value_tlast;
 reg [7:0] acc_sum = 0;
+reg [7:0] acc_result = 0;
 reg acc_valid = 0;
 reg acc_last = 0;
 
@@ -107,10 +108,12 @@ always @(posedge clk or negedge rst_n) begin
         acc_sum <= 0;
         acc_valid <= 0;
         acc_last <= 0;
+        acc_result <= 0;
     end else begin
         if(F_element_tvalid) begin
             if(F_element_tlast) begin
                 acc_sum <= F_element;
+                acc_result <= acc_sum + F_element;
                 acc_valid <= 1;
                 acc_last <= 1;
             end else begin
@@ -128,12 +131,13 @@ end
 assign pre_F_value_tvalid = acc_valid;
 assign pre_F_value_tlast = acc_last;
 
-always @(posedge clk or negedge rst_n) begin
-    if(!rst_n) begin
-        F_value <= 0;
-    end else begin
-        F_value <= acc_sum[0] == 0;
-    end
-end
+// always @(posedge clk or negedge rst_n) begin
+//     if(!rst_n) begin
+//         F_value <= 0;
+//     end else begin
+//         F_value <= acc_sum[0] == 0;
+//     end
+// end
+assign F_value = acc_result[0] == 0;
 assign F_value_tvalid = pre_F_value_tvalid & pre_F_value_tlast;
 endmodule

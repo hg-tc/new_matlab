@@ -11,25 +11,25 @@ reg aclk;
 
 // 输入信号
 reg s_axis_a_tvalid;
-reg [DATAWIDTH_IN-1:0] s_axis_a_tdata;
+reg [39:0] s_axis_a_tdata;
 reg s_axis_b_tvalid;
 reg [7:0] s_axis_b_tdata;
 
 // 输出信号
 wire m_axis_result_tvalid;
-wire [DATAWIDTH_OUT-1:0] m_axis_result_tdata;
+wire [63:0] m_axis_result_tdata;
 
 // 实例化被测模块
-divide_fix_wrapper_32_8 dut (
+
+divide_fix_wrapper_40_8 dut_40_8 (
     .aclk(aclk),
     .s_axis_a_tvalid(s_axis_a_tvalid),
     .s_axis_a_tdata(s_axis_a_tdata),
     .s_axis_b_tvalid(s_axis_b_tvalid),
     .s_axis_b_tdata(s_axis_b_tdata),
-    .m_axis_result_tvalid(m_axis_result_tvalid),
-    .m_axis_result_tdata(m_axis_result_tdata)
+    .m_axis_result_tvalid(),
+    .m_axis_result_tdata()
 );
-
 // 时钟生成
 initial begin
     aclk = 0;
@@ -49,7 +49,7 @@ initial begin
     
     // 测试用例1：基本除法测试
     @(posedge aclk);
-    s_axis_a_tdata = 32'h10000000;  // 10
+    s_axis_a_tdata = 40'b0001000000000000000000000000000000000000;  // 10
     s_axis_b_tdata = 8'b10000000;  // 2
     s_axis_a_tvalid = 1;
     s_axis_b_tvalid = 1;
@@ -58,7 +58,7 @@ initial begin
     s_axis_a_tvalid = 0;
     s_axis_b_tvalid = 0;
     
-    // 等待结果
+    // 测试用例1：基本除法测试
 
     
     // 等待结果
@@ -69,12 +69,6 @@ initial begin
 end
 
 // 监控输出
-always @(posedge aclk) begin
-    if (m_axis_result_tvalid) begin
-        $display("Time=%t: Dividend=%h, Divisor=%h, Result=%h", 
-                 $time, s_axis_a_tdata, s_axis_b_tdata, m_axis_result_tdata);
-    end
-end
 
 
 endmodule 
