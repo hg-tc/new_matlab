@@ -211,17 +211,17 @@ generate
         wire [63:0] F_value_J[J-1:0] ;
         wire [J-1:0] F_value_tvalid_J;
         for (j = 0; j < J; j = j + 1) begin : F_case
-            F_case4_fix #(.J(J), .I(I), .A(A)) F_case4_fix(
-                .clk(clk),
-                .rst_n(rst_n),
-                .H(H_row_reg),
-                .H_tvalid(H_row_update),
-                .y(y_reg),
-                .x(candidate_row[a]),
-                .x_tvalid((j==J_cnt) ? candidate_row_tvalid[a] : 0),
-                .F_value(F_value_J[j]),
-                .F_value_tvalid(F_value_tvalid_J[j])
-            );
+            // F_case4_fix #(.J(J), .I(I), .A(A)) F_case4_fix(
+            //     .clk(clk),
+            //     .rst_n(rst_n),
+            //     .H(H_row_reg),
+            //     .H_tvalid(H_row_update),
+            //     .y(y_reg),
+            //     .x(candidate_row[a]),
+            //     .x_tvalid((j==J_cnt) ? candidate_row_tvalid[a] : 0),
+            //     .F_value(F_value_J[j]),
+            //     .F_value_tvalid(F_value_tvalid_J[j])
+            // );
         end
         assign F_value[a] = F_value_J[J_cnt2];
         assign F_value_tvalid[a] = F_value_tvalid_J[J_cnt2];

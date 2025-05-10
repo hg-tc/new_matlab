@@ -9,12 +9,13 @@ module backbone2vinput #(
     input rst_n,
     input [64-1:0] backbone,
     input backbone_tvalid,
+    input first_backbone,
 
     input [J*A_WIDTH-1:0] x_initial,
     input x_initial_tvalid,
 
-    input [J_WIDTH-1:0] ind_j,
-    input ind_j_tvalid,
+    // input [J_WIDTH-1:0] ind_j,
+    // input ind_j_tvalid,
 
     input [J*A*64-1:0] alpha_u,
     input alpha_u_tvalid,
@@ -23,14 +24,76 @@ module backbone2vinput #(
     output [63:0] vinput
 );
 
+wire [1:0] state_out;
+wire backbone_now_empty;
+wire backbone_now_tvalid;
+wire multi_in_tvalid;
+wire index_out_tvalid;
+wire index_out_tlast;
+reg new_backbone;
+reg [2:0]pre_new_backbone;
+reg pre_start_gen;
+always @(posedge clk) begin
+    if(!rst_n) begin
+        new_backbone <= 0;
+        pre_new_backbone <= 0;
+        pre_start_gen <= 0;
+    end else if(pre_new_backbone==1) begin
+        new_backbone <= 1;
+        pre_new_backbone <= 0;
+        pre_start_gen <= 0;
+    end else if(pre_new_backbone!=0) begin
+        pre_new_backbone <= pre_new_backbone - 1;
+        new_backbone <= 0;
+        pre_start_gen <= 0;
+    end else if(index_out_tlast && state_out==2'b00 && !backbone_now_empty) begin
+        new_backbone <= 0;
+        pre_new_backbone <= 4;
+        pre_start_gen <= 1;
+    end else begin
+        new_backbone <= 0;
+        pre_new_backbone <= 0;
+        pre_start_gen <= 0;
+    end
+end
+wire [63:0] backbone_now;
+easy_fifo #(
+    .DATAWIDTH(64),
+    .SIZE(J+1),
+    .IN_SIZE(1),
+    .OUT_SIZE(1)
+) fifo_backbone (
+    .clk(clk),
+    .rst_n(rst_n),
+    .din(backbone),
+    .din_valid(backbone_tvalid && !first_backbone),
+    .request(new_backbone),
+    .dout(backbone_now),
+    .out_valid(backbone_now_tvalid),
+    .empty(backbone_now_empty)
+);
+
+
+reg [J_WIDTH-1:0] ind_j;
+always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        ind_j <= 0;
+    end
+    else if (new_backbone || first_backbone) begin
+        ind_j <= ind_j + 1;
+    end
+    else begin
+        ind_j <= ind_j;
+    end
+end
 
 wire [A_WIDTH-1:0] mutli_col_idx1,mutli_col_idx2;
 wire [J_WIDTH-1:0] multi_row_idx1,multi_row_idx2;
 wire [A_WIDTH-1:0] divi_col_idx1,divi_col_idx2;
 wire [J_WIDTH-1:0] divi_row_idx1,divi_row_idx2;
-wire index_out_tvalid;
-wire [1:0] state_out;
-multi_divi_index_gen #(
+
+
+multi_divi_index_gen_v2 #(
     .J(J),
     .I(I),
     .A(A)
@@ -39,7 +102,7 @@ multi_divi_index_gen #(
     .rst_n(rst_n),
     .x_initial(x_initial),
     .x_initial_tvalid(x_initial_tvalid),
-    .start_gen(backbone_tvalid),
+    .start_gen(pre_start_gen || first_backbone),
     .J_index(ind_j),
     .mutli_col_idx1(mutli_col_idx1),
     .mutli_col_idx2(mutli_col_idx2),
@@ -50,6 +113,7 @@ multi_divi_index_gen #(
     .divi_row_idx(divi_row_idx1),
     .divi_row_idx2(divi_row_idx2),
     .index_out_tvalid(index_out_tvalid),
+    .index_out_tlast(index_out_tlast),
     .state_out(state_out)
 );
 
@@ -67,9 +131,9 @@ wire [63:0] multi_out;
 multiply multiply_inst1(
     .aclk(clk),
     .s_axis_a_tvalid(multi_in_tvalid),
-    .s_axis_a_tdata(mutli_op1),
+    .s_axis_a_tdata(state_out!=2'b01 ? mutli_op1 : 64'h3FF0000000000000),
     .s_axis_b_tvalid(multi_in_tvalid),
-    .s_axis_b_tdata((state_out==2'b10) ? mutli_op2 : 64'h3FF0000000000000),
+    .s_axis_b_tdata((state_out==2'b11) ? mutli_op2 : 64'h3FF0000000000000),
     .m_axis_result_tvalid(multi_out_tvalid),
     .m_axis_result_tdata(multi_out)
 );
@@ -79,9 +143,9 @@ wire [63:0] divi_out;
 multiply multiply_inst2(
     .aclk(clk),
     .s_axis_a_tvalid(multi_in_tvalid),
-    .s_axis_a_tdata(divi_op1),
+    .s_axis_a_tdata(state_out!=2'b01 ? divi_op1 : 64'h3FF0000000000000),
     .s_axis_b_tvalid(multi_in_tvalid),
-    .s_axis_b_tdata((state_out==2'b10) ? divi_op2 : 64'h3FF0000000000000),
+    .s_axis_b_tdata((state_out==2'b11) ? divi_op2 : 64'h3FF0000000000000),
     .m_axis_result_tvalid(divi_out_tvalid),
     .m_axis_result_tdata(divi_out)
 );
@@ -93,7 +157,9 @@ always @(posedge clk) begin
     if(!rst_n) begin
         backbone_reg <= 0;
     end
-    else if(backbone_tvalid) begin 
+    else if(backbone_now_tvalid) begin 
+        backbone_reg <= backbone_now;
+    end else if(first_backbone) begin
         backbone_reg <= backbone;
     end
 end
@@ -114,10 +180,10 @@ wire divi_out_delayed_tvalid;
 wire [63:0] divi_out_delayed;
 easy_fifo #(
     .DATAWIDTH(64),
-    .SIZE(64),
+    .SIZE(32),
     .IN_SIZE(1),
     .OUT_SIZE(1)
-) fifo_backbone (
+) fifo_divi (
     .clk(clk),
     .rst_n(rst_n),
     .din(divi_out),

@@ -1,10 +1,10 @@
 `timescale 1ns/1ps
 
-module top_fix_case2_wrapper_tb;
+module top_double_case2_wrapper_tb;
 
 // 参数定义
 parameter J = 14;
-parameter I = 7;
+parameter I = 2;
 parameter A = 2;
 localparam J_WIDTH = $clog2(J)+1;
 localparam A_WIDTH = $clog2(A)+1;
@@ -16,7 +16,7 @@ reg rst_n;
 reg start;
 
 // 实例化被测模块
-top_fix_case2_wrapper #(
+top_double_case2_wrapper #(
     .J(J),
     .I(I),
     .A(A)
@@ -65,13 +65,13 @@ end
 //              dut.alpha_u_col, dut.alpha_u_col_tvalid, dut.alpha_u_col_tlast);
 // end
 
-// 波形输出
-initial begin
-    $dumpfile("top_fix_case2_wrapper_tb.vcd");
-    $dumpvars(0, top_fix_case2_wrapper_tb);
-    $dumpvars(0, dut);
-    $dumpvars(0, dut.top_fix_case2_inst);
-    // $dumpvars(0, dut.top_fix_case2_inst.gen_cal_core.cal_core_inst);
-end
+// // 波形输出
+// initial begin
+//     $dumpfile("top_fix_case2_wrapper_tb.vcd");
+//     $dumpvars(0, top_fix_case2_wrapper_tb);
+//     $dumpvars(0, dut);
+//     $dumpvars(0, dut.top_fix_case2_inst);
+//     // $dumpvars(0, dut.top_fix_case2_inst.gen_cal_core.cal_core_inst);
+// end
 
 endmodule 

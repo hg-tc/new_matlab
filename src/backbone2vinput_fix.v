@@ -24,6 +24,10 @@ module backbone2vinput_fix #(
     output [31:0] vinput
 );
 
+wire [1:0] state_out;
+wire backbone_now_empty;
+wire backbone_now_tvalid;
+wire multi_in_tvalid;
 wire index_out_tvalid;
 wire index_out_tlast;
 reg new_backbone;
@@ -88,7 +92,7 @@ wire [J_WIDTH-1:0] multi_row_idx1,multi_row_idx2;
 wire [A_WIDTH-1:0] divi_col_idx1,divi_col_idx2;
 wire [J_WIDTH-1:0] divi_row_idx1,divi_row_idx2;
 
-wire [1:0] state_out;
+
 multi_divi_index_gen_v2 #(
     .J(J),
     .I(I),
