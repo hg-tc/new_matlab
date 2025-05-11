@@ -223,7 +223,7 @@ generate
         
         for (a = 0; a < A; a = a + 1) begin : gen_alpha_new_col_inner
             wire pre_alpha_final_tvalid;
-            wire [63:0] pre_alpha_final;
+            wire [7:0] pre_alpha_final;
             divide_fix_wrapper_64_64 divider_inst(
                 .aclk(clk),
                 .s_axis_a_tvalid(alpha_sum_tvalid),
@@ -233,7 +233,7 @@ generate
                 .m_axis_result_tvalid(pre_alpha_final_tvalid),
                 .m_axis_result_tdata(pre_alpha_final)
             );
-            assign alpha_final[gi4][a*8 +: 8] = pre_alpha_final[48:41] != 0 ? pre_alpha_final[48:41] : 8'b00000001;
+            assign alpha_final[gi4][a*8 +: 8] = pre_alpha_final != 0 ? pre_alpha_final : 8'b00000001;
             assign alpha_final_tvalid[gi4][a] = pre_alpha_final_tvalid;
         end
     end

@@ -42,7 +42,7 @@ wire x_double_tvalid;
 
 easy_fifo #(
     .DATAWIDTH(AWIDTH),
-    .SIZE(512),
+    .SIZE(32),
     .IN_SIZE(J),
     .OUT_SIZE(1)
 ) fifo_x ( 

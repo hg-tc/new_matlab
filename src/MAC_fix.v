@@ -44,7 +44,7 @@ generate
         wire multiply_out_tlast;
         easy_fifo #(
             .DATAWIDTH(1),
-            .SIZE(64),
+            .SIZE(8),
             .IN_SIZE(1),
             .OUT_SIZE(1)
         ) fifo_tlast (

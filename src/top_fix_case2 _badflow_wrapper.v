@@ -1,4 +1,4 @@
-module top_double_case2_wrapper #(
+module top_fix_case2_badflow_wrapper #(
     parameter J = 14,
     parameter I = 7,
     parameter A = 2,
@@ -15,7 +15,7 @@ module top_double_case2_wrapper #(
 reg [J-1:0] H_row;
 reg H_row_tvalid;
 reg H_row_tlast;
-reg [J*64-1:0] alpha_u_col;
+reg [J*8-1:0] alpha_u_col;
 reg alpha_u_col_tvalid;
 reg alpha_u_col_tlast;
 
@@ -68,20 +68,8 @@ always @(posedge clk or negedge rst_n) begin
                         state <= ALPHA_SEND;
                         alpha_u_col_tvalid <= 1;
                         alpha_u_col <= {
-                            64'h3FDD851EB851EB85, // 0.456
-                            64'h3FE9EB851EB851EC, // 0.81
-                            64'h3FE6666666666666, // 0.7
-                            64'h3FED1EB851EB851F, // 0.91
-                            64'h3FE3D70A3D70A3D7, // 0.62
-                            64'h3FE9EB851EB851EC, // 0.81
-                            64'h3FB47AE147AE147B, // 0.08
-                            64'h3FB999999999999A, // 0.1
-                            64'h3FE051EB851EB852, // 0.51
-                            64'h3FA47AE147AE147B, // 0.04
-                            64'h3FD47AE147AE147B, // 0.33
-                            64'h3FEF5C28F5C28F5C, // 0.98
-                            64'h3FE51EB851EB851F, // 0.66
-                            64'h3FF0000000000000  // 1.0
+                            8'h74, 8'hCE, 8'hB3, 8'hE7, 8'hBF, 8'hCE, 8'h16,
+                            8'h1B, 8'h51, 8'h05, 8'h33, 8'hF9, 8'hA6, 8'hFF
                         };
                     end
                 endcase
@@ -92,20 +80,8 @@ always @(posedge clk or negedge rst_n) begin
                 if(alpha_cnt == 0) begin
                     alpha_cnt <= 1;
                     alpha_u_col <= {
-                        64'h3FE3D70A3D70A3D7, // 0.62
-                        64'h3FD47AE147AE147B, // 0.33
-                        64'h3FDF5C28F5C28F5C, // 0.49
-                        64'h3FB999999999999A, // 0.1
-                        64'h3FDD70A3D70A3D71, // 0.46
-                        64'h3FD47AE147AE147B, // 0.33
-                        64'h3FE7AE147AE147AE, // 0.74
-                        64'h3FE7333333333333, // 0.73
-                        64'h3FE5C28F5C28F5C3, // 0.68
-                        64'h3FEF5C28F5C28F5C, // 0.98
-                        64'h3FE9EB851EB851EC, // 0.81
-                        64'h3FA47AE147AE147B, // 0.04
-                        64'h3FE051EB851EB852, // 0.51
-                        64'h3F847AE147AE147B  // 0.01
+                        8'h8B, 8'h32, 8'h4D, 8'h19, 8'h41, 8'h32, 8'hE9,
+                        8'hE5, 8'hAE, 8'hFB, 8'hCD, 8'h06, 8'h5A, 8'h01
                     };
                     alpha_u_col_tlast <= 1;
                 end else begin
@@ -123,11 +99,11 @@ always @(posedge clk or negedge rst_n) begin
 end
 
 // 实例化内层模块
-top_double_case2 #(
+top_fix_case2_badflow #(
     .J(J),
     .I(I),
     .A(A)
-) top_double_case2_inst (
+) top_fix_case2_badflow_inst (
     .clk(clk),
     .rst_n(rst_n),
     .H_row(H_row),
@@ -137,5 +113,7 @@ top_double_case2 #(
     .alpha_u_col_tvalid(alpha_u_col_tvalid),
     .alpha_u_col_tlast(alpha_u_col_tlast)
 );
+
+
 
 endmodule

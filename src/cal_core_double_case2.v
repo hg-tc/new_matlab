@@ -256,7 +256,7 @@ backbone2vinput #(.J(J), .I(I), .A(A)) backbone2vinput(
 wire F_value_tlast;
 easy_fifo #(
     .DATAWIDTH(1),
-    .SIZE(512),
+    .SIZE(32),
     .IN_SIZE(1),
     .OUT_SIZE(1)
 ) fifo_Ftlast (
@@ -305,7 +305,7 @@ generate
     for (a = 0; a < A; a = a + 1) begin : MAC_case
         easy_fifo #(
             .DATAWIDTH(1),
-            .SIZE(512),
+            .SIZE(128),
             .IN_SIZE(1),
             .OUT_SIZE(1)
         ) fifo_M_row (
@@ -334,7 +334,7 @@ assign request_signal = vinput_ready & M_row_ready;
 wire MAC_tlast;
 easy_fifo #(
     .DATAWIDTH(1),
-    .SIZE(512),
+    .SIZE(128),
     .IN_SIZE(1),
     .OUT_SIZE(1)
 ) fifo_MACtlast (

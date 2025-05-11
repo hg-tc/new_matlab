@@ -1,4 +1,4 @@
-module cal_core_fix_case2 #(
+module cal_core_fix_case2_badflow #(
     parameter J = 14,
     parameter I = 7,
     parameter A = 2,
@@ -254,33 +254,35 @@ always @(posedge clk or negedge rst_n) begin
 end
 
 
-wire [31:0] vinput_0;
-wire vinput_0_tvalid;
+// wire [31:0] vinput_0;
+// wire vinput_0_tvalid;
+wire [31:0] vinput_set;
+wire vinput_set_tvalid;
 backbone_initial_fix #(.J(J), .I(I), .A(A)) backbone_initial(
     .clk(clk),
     .rst_n(rst_n),
     .alpha_u(alpha_u_reg),
-    .x_initial(x_initial),
+    .x_initial(candidate_row[0]),
     .ind_j(0),
-    .din_tvalid(x_initial_tvalid),
-    .backbone_initial(vinput_0),
-    .backbone_initial_tvalid(vinput_0_tvalid)
+    .din_tvalid(candidate_row_tvalid[0]),
+    .backbone_initial(vinput_set),
+    .backbone_initial_tvalid(vinput_set_tvalid)
 );  
 
-wire backbone_J_tvalid;
-wire [31:0] backbone_J;
-backbone_J_gen_fix #(.J(J), .I(I), .A(A)) backbone_J_gen(
-    .clk(clk),
-    .rst_n(rst_n),
-    .backbone(vinput_0),
-    .backbone_tvalid(vinput_0_tvalid),
-    .x_initial(x_initial),
-    .x_initial_tvalid(x_initial_tvalid),
-    .alpha_u(alpha_u_reg),
-    .alpha_u_tvalid(x_initial_tvalid),
-    .backbone_J_tvalid(backbone_J_tvalid),
-    .backbone_J(backbone_J)
-);
+// wire backbone_J_tvalid;
+// wire [31:0] backbone_J;
+// backbone_J_gen_fix #(.J(J), .I(I), .A(A)) backbone_J_gen(
+//     .clk(clk),
+//     .rst_n(rst_n),
+//     .backbone(vinput_0),
+//     .backbone_tvalid(vinput_0_tvalid),
+//     .x_initial(x_initial),
+//     .x_initial_tvalid(x_initial_tvalid),
+//     .alpha_u(alpha_u_reg),
+//     .alpha_u_tvalid(x_initial_tvalid),
+//     .backbone_J_tvalid(backbone_J_tvalid),
+//     .backbone_J(backbone_J)
+// );
 
 // reg [J_WIDTH-1:0] J_idx2;
 
@@ -296,22 +298,22 @@ backbone_J_gen_fix #(.J(J), .I(I), .A(A)) backbone_J_gen(
 //     end
 // end
 
-wire [31:0] vinput_set;
-wire vinput_set_tvalid;
-backbone2vinput_fix #(.J(J), .I(I), .A(A)) backbone2vinput(
-    .clk(clk),
-    .rst_n(rst_n),
-    .backbone(backbone_J_tvalid ? backbone_J : vinput_0),
-    .backbone_tvalid(backbone_J_tvalid || vinput_0_tvalid),
-    .first_backbone(vinput_0_tvalid),
-    .x_initial(x_initial),
-    .x_initial_tvalid(x_initial_tvalid),
-    // .ind_j(),
-    .alpha_u(alpha_u_reg),
-    .alpha_u_tvalid(x_initial_tvalid),
-    .vinput(vinput_set),
-    .vinput_tvalid(vinput_set_tvalid)
-);  
+// wire [31:0] vinput_set;
+// wire vinput_set_tvalid;
+// backbone2vinput_fix #(.J(J), .I(I), .A(A)) backbone2vinput(
+//     .clk(clk),
+//     .rst_n(rst_n),
+//     .backbone(backbone_J_tvalid ? backbone_J : vinput_0),
+//     .backbone_tvalid(backbone_J_tvalid || vinput_0_tvalid),
+//     .first_backbone(vinput_0_tvalid),
+//     .x_initial(x_initial),
+//     .x_initial_tvalid(x_initial_tvalid),
+//     // .ind_j(),
+//     .alpha_u(alpha_u_reg),
+//     .alpha_u_tvalid(x_initial_tvalid),
+//     .vinput(vinput_set),
+//     .vinput_tvalid(vinput_set_tvalid)
+// );  
 
 // -------------------------------------------------- MAC --------------------------------------------------
 
@@ -358,7 +360,7 @@ wire [31:0] vinput;
 wire vinput_tvalid;
 easy_fifo #(
     .DATAWIDTH(32),
-    .SIZE(8),
+    .SIZE(16),
     .IN_SIZE(1),
     .OUT_SIZE(1)
 ) fifo_vinput (

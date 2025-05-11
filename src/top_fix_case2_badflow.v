@@ -1,4 +1,5 @@
-module top_double_case2 #(
+
+module top_fix_case2_badflow #(
     parameter J = 14,
     parameter I = 7,
     parameter A = 2,
@@ -12,7 +13,7 @@ module top_double_case2 #(
     input H_row_tvalid,
     input H_row_tlast,
 
-    input [J*64-1:0] alpha_u_col,
+    input [J*8-1:0] alpha_u_col,
     input alpha_u_col_tvalid,
     input alpha_u_col_tlast
 );
@@ -50,11 +51,11 @@ always @(posedge clk or negedge rst_n) begin
 end
 
 reg [A_WIDTH-1:0] alpha_cnt;
-reg [J*A*64-1:0] alpha_initial_reg;
+reg [J*A*8-1:0] alpha_initial_reg;
 
 wire new_alpha_u_col_tlast;
 wire new_alpha_u_col_tvalid;
-wire [J*64-1:0] new_alpha_u_col [I-1:0];
+wire [J*8-1:0] new_alpha_u_col [I-1:0];
 
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -64,26 +65,26 @@ always @(posedge clk or negedge rst_n) begin
     else begin
         if (alpha_u_col_tvalid) begin
             for (i = 0; i < J; i = i + 1) begin
-                alpha_initial_reg[i*A*64 + alpha_cnt*64 +: 64] <= alpha_u_col[i*64 +: 64];
+                alpha_initial_reg[i*A*8 + alpha_cnt*8 +: 8] <= alpha_u_col[i*8 +: 8];
             end
             alpha_cnt <= alpha_cnt + 1;
         end
     end
 end
-wire [63:0] alpha_debug;
-assign alpha_debug = alpha_u_col[63:0];
+wire [7:0] alpha_debug;
+assign alpha_debug = alpha_u_col[7:0];
 
 reg new_iteration;
-wire [A*64-1:0] beta [I-1:0];
+wire [A*8-1:0] beta [I-1:0];
 wire [I-1:0] beta_tvalid;
 genvar gi;
 generate
     for (gi = 0; gi < I; gi = gi + 1) begin : gen_cal_core
-        cal_core_double_case2 #(
+        cal_core_fix_case2_badflow #(
             .J(J),
             .I(I),
             .A(A)
-        ) cal_core_double_case2_inst(
+        ) cal_core_fix_case2_badflow (
             .clk(clk),
             .rst_n(rst_n && !new_iteration),
             .H_row(H_row_reg[gi]),
@@ -97,17 +98,17 @@ generate
     end
 endgenerate
 
-wire [I*64-1:0] beta_merge [A-1 : 0];
+wire [I*8-1:0] beta_merge [A-1 : 0];
 genvar a, gi2;
 generate
     for (a = 0; a < A; a = a + 1) begin : gen_beta_merge
         for (gi2 = 0; gi2 < I; gi2 = gi2 + 1) begin : gen_beta_merge_inner
-            assign beta_merge[a][gi2*64 +: 64] = beta[gi2][a*64 +: 64];
+            assign beta_merge[a][gi2*8 +: 8] = beta[gi2][a*8 +: 8];
         end
     end
 endgenerate
 
-reg [A*64-1:0] beta_reg [I-1:0];
+reg [A*8-1:0] beta_reg [I-1:0];
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         for (i = 0; i < I; i = i + 1) begin
@@ -136,9 +137,9 @@ end
 wire [I-1:0] beta_merge_tvalid;
 assign beta_merge_tvalid = beta_tvalid;
 
-wire [64-1:0] alpha_temp_col [A-1 : 0];
+wire [32-1:0] alpha_temp_col [A-1 : 0];
 wire alpha_temp_col_tvalid [A-1 : 0];
-wire [64-1:0] alpha_temp_col2 [A-1 : 0];
+wire [40-1:0] alpha_temp_col2 [A-1 : 0];
 wire alpha_temp_col2_tvalid [A-1 : 0];
 wire [A*64-1:0] alpha_temp_col3 [I-1 : 0];
 wire [A-1:0] alpha_temp_col3_tvalid [I-1 : 0];
@@ -147,7 +148,7 @@ generate
     for (a = 0; a < A; a = a + 1) begin : gen_new_alpha_u_col
         multi_tree_fix_v2 #(
             .NUM(I),
-            .DATA_WIDTH(64)
+            .DATA_WIDTH(8)
         ) multi_tree_inst(
             .clk(clk),
             .rst_n(rst_n),
@@ -157,22 +158,28 @@ generate
             .dout_tvalid(alpha_temp_col_tvalid[a])
         );
 
-        multiply multiply_inst(
+        multiply_fix_v2 #(
+            .DATAWIDTH_IN_A(32),
+            .DATAWIDTH_IN_B(8),
+            .DATAWIDTH_OUT(40),
+            .INVERSE(0),
+            .OUTADDR(0)
+        ) multiply_inst(
             .aclk(clk),
             .s_axis_a_tvalid(alpha_temp_col_tvalid[a]),
             .s_axis_a_tdata(alpha_temp_col[a]),
             .s_axis_b_tvalid(alpha_temp_col_tvalid[a]),
-            .s_axis_b_tdata(alpha_initial_reg[(J_cnt*A+a)*64 +: 64]),
+            .s_axis_b_tdata(alpha_initial_reg[(J_cnt*A+a)*8 +: 8]),
             .m_axis_result_tvalid(alpha_temp_col2_tvalid[a]),
             .m_axis_result_tdata(alpha_temp_col2[a])
         );
         for (gi3 = 0; gi3 < I; gi3 = gi3 + 1) begin : gen_alpha_new_2_col
-            divide divide_inst(
+            divide_fix_wrapper_40_8 divide_inst(
                 .aclk(clk),
                 .s_axis_a_tvalid(alpha_temp_col2_tvalid[a]),
                 .s_axis_a_tdata(alpha_temp_col2[a]),
                 .s_axis_b_tvalid(alpha_temp_col2_tvalid[a]),
-                .s_axis_b_tdata(beta_reg[gi3][a*64 +: 64]),
+                .s_axis_b_tdata(beta_reg[gi3][a*8 +: 8]),
                 .m_axis_result_tvalid(alpha_temp_col3_tvalid[gi3][a]),
                 .m_axis_result_tdata(alpha_temp_col3[gi3][a*64 +: 64])
             );
@@ -189,23 +196,21 @@ generate
 endgenerate
 
 
-wire [A*64-1:0] alpha_final [I-1 : 0];
+wire [A*8-1:0] alpha_final [I-1 : 0];
 wire [A-1:0] alpha_final_tvalid [I-1 : 0];
 generate
     for (gi4 = 0; gi4 < I; gi4 = gi4 + 1) begin : gen_alpha_new_col
         wire [63:0] alpha_sum;
         wire alpha_sum_tvalid;
 
-        add  adder_inst(
-            .aclk(clk),
-            .s_axis_a_tvalid(alpha_temp_col3_tvalid[gi4][0]),
-            .s_axis_a_tdata(alpha_temp_col3[gi4][0*64 +: 64]),
-            .s_axis_b_tvalid(alpha_temp_col3_tvalid[gi4][0]),
-            .s_axis_b_tdata(alpha_temp_col3[gi4][1*64 +: 64]),
-            .m_axis_result_tvalid(alpha_sum_tvalid),
-            .m_axis_result_tdata(alpha_sum)
+        adder_case2_fix  adder_inst(
+            .clk(clk),
+            .rst_n(rst_n),
+            .din(alpha_temp_col3[gi4]),
+            .din_tvalid(alpha_temp_col3_tvalid[gi4][0]),
+            .dout(alpha_sum),
+            .dout_tvalid(alpha_sum_tvalid)
         );
-
         wire [64 * A - 1 : 0] alpha_temp_col3_delay;
         signal_delay #(
             .DATAWIDTH(64 * A),
@@ -219,8 +224,8 @@ generate
         
         for (a = 0; a < A; a = a + 1) begin : gen_alpha_new_col_inner
             wire pre_alpha_final_tvalid;
-            wire [63:0] pre_alpha_final;
-            divide divider_inst(
+            wire [7:0] pre_alpha_final;
+            divide_fix_wrapper_64_64 divider_inst(
                 .aclk(clk),
                 .s_axis_a_tvalid(alpha_sum_tvalid),
                 .s_axis_a_tdata(alpha_temp_col3_delay[a*64 +: 64]),
@@ -229,13 +234,13 @@ generate
                 .m_axis_result_tvalid(pre_alpha_final_tvalid),
                 .m_axis_result_tdata(pre_alpha_final)
             );
-            assign alpha_final[gi4][a*64 +: 64] = pre_alpha_final;
+            assign alpha_final[gi4][a*8 +: 8] = pre_alpha_final != 0 ? pre_alpha_final : 8'b00000001;
             assign alpha_final_tvalid[gi4][a] = pre_alpha_final_tvalid;
         end
     end
 endgenerate
 
-reg [J*A*64-1:0] alpha_reg [I-1 : 0];
+reg [J*A*8-1:0] alpha_reg [I-1 : 0];
 reg [J_WIDTH-1:0] alpha_J_cnt;
 
 always @(posedge clk or negedge rst_n) begin
@@ -248,7 +253,7 @@ always @(posedge clk or negedge rst_n) begin
     end
     else if (alpha_final_tvalid[0][0] & alpha_J_cnt < J-1) begin
         for (i = 0; i < I; i = i + 1) begin
-            alpha_reg[i][alpha_J_cnt*A*64 +: A*64] <= alpha_final[i];
+            alpha_reg[i][alpha_J_cnt*A*8 +: A*8] <= alpha_final[i];
         end
         alpha_J_cnt <= alpha_J_cnt + 1;
         new_iteration <= 0;
@@ -309,7 +314,7 @@ genvar gi5,gi6;
 generate
     for (gi5 = 0; gi5 < J; gi5 = gi5 + 1) begin : gen_alpha_u_col
         for (gi6 = 0; gi6 < I; gi6 = gi6 + 1) begin : gen_alpha_u_col_inner
-            assign new_alpha_u_col[gi6][gi5*64 +: 64] = alpha_reg[gi6][gi5*A*64+alpha_A_cnt*64 +: 64];
+            assign new_alpha_u_col[gi6][gi5*8 +: 8] = alpha_reg[gi6][gi5*A*8+alpha_A_cnt*8 +: 8];
         end
     end
 endgenerate
